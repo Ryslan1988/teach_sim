@@ -1,0 +1,2 @@
+<script setup lang="ts">import { useRouter } from 'vue-router'; import { useGameStore } from '@/stores/game'; const router=useRouter(); const game=useGameStore()</script>
+<template><div class="center-wrap"><div class="panel pause"><h1>ПАУЗА</h1><button class="btn primary block" @click="router.back()">Продолжить</button><button class="btn secondary block" @click="game.reset();router.push('/mode')">Начать заново</button><button class="btn secondary block">Настройки</button><button class="btn ghost block" @click="router.push('/')">Выйти в меню</button></div></div></template>

@@ -1,0 +1,2 @@
+<script setup lang="ts">import { useRouter } from 'vue-router'; import { useGameStore } from '@/stores/game'; const router=useRouter(); const game=useGameStore()</script>
+<template><div class="center-wrap"><div class="panel wide final"><h1>ПОЗДРАВЛЯЕМ!</h1><p>Вы собрали отличную команду!</p><div class="trophy">🏆</div><div class="final-score"><span>Итоговые очки</span><b>{{game.score + game.teamIds.length*250}}</b></div><button class="btn primary block" @click="router.push('/')">На главную</button></div></div></template>
