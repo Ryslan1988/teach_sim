@@ -1,65 +1,31 @@
 import { WebSocketServer } from 'ws'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
-import { readFile, stat } from 'node:fs/promises'
-import { extname, resolve, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 const port = Number(process.env.PORT || process.env.MULTIPLAYER_PORT || 8787)
-const distDirectory = resolve(fileURLToPath(new URL('../dist', import.meta.url)))
-const contentTypes = {
-  '.css': 'text/css; charset=utf-8',
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.png': 'image/png',
-  '.svg': 'image/svg+xml',
-  '.webp': 'image/webp',
-}
 const rooms = new Map()
 
-async function serveFrontend(request, response) {
-  const requestUrl = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`)
-  if (requestUrl.pathname === '/health') {
-    response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
-    response.end(JSON.stringify({ status: 'ok', rooms: rooms.size }))
-    return
-  }
-
-  const requestedPath = decodeURIComponent(requestUrl.pathname)
-  const relativePath = requestedPath === '/' ? 'index.html' : requestedPath.slice(1)
-  let filePath = resolve(distDirectory, relativePath)
-  if (filePath !== distDirectory && !filePath.startsWith(`${distDirectory}${sep}`)) {
-    response.writeHead(403)
-    response.end('Forbidden')
-    return
-  }
-
-  try {
-    const fileStats = await stat(filePath)
-    if (!fileStats.isFile()) throw new Error('Not a file')
-  } catch {
-    if (requestedPath.startsWith('/assets/')) {
-      response.writeHead(404)
-      response.end('Not found')
-      return
-    }
-    filePath = resolve(distDirectory, 'index.html')
-  }
-
-  const body = await readFile(filePath)
-  const contentType = contentTypes[extname(filePath)] || 'application/octet-stream'
-  const cacheControl = filePath.endsWith('index.html') ? 'no-cache' : 'public, max-age=31536000, immutable'
-  response.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': cacheControl })
-  response.end(request.method === 'HEAD' ? undefined : body)
+function sendJson(response, status, body) {
+  response.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+  })
+  response.end(JSON.stringify(body))
 }
 
 const httpServer = createServer((request, response) => {
-  serveFrontend(request, response).catch(error => {
-    console.error('HTTP request failed', error)
-    if (!response.headersSent) response.writeHead(500)
-    response.end('Internal server error')
-  })
+  const requestUrl = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`)
+  if (requestUrl.pathname === '/health') {
+    sendJson(response, 200, { status: 'ok', rooms: rooms.size })
+    return
+  }
+
+  if (requestUrl.pathname === '/') {
+    sendJson(response, 200, { service: 'teach-sim-server', status: 'ok', rooms: rooms.size })
+    return
+  }
+
+  sendJson(response, 404, { error: 'Not found' })
 })
 const server = new WebSocketServer({ server: httpServer })
 
@@ -68,15 +34,22 @@ function send(socket, event) { if (socket.readyState === 1) socket.send(JSON.str
 function broadcast(room, event, except) { room.players.forEach(player => { if (player.socket !== except) send(player.socket, event) }) }
 function leave(player) {
   if (!player.room) return
-  const room = rooms.get(player.room)
+  const roomCode = player.room
+  player.room = ''
+  const room = rooms.get(roomCode)
   if (!room) return
   room.players = room.players.filter(item => item !== player)
+  room.locks.forEach((owner, candidateId) => {
+    if (owner === player.id) room.locks.delete(candidateId)
+  })
   broadcast(room, { type: 'player-left', playerId: player.id })
-  if (!room.players.length) rooms.delete(player.room)
+  if (!room.players.length) rooms.delete(roomCode)
 }
 
 server.on('connection', socket => {
   const player = { id: randomUUID(), socket, room: '' }
+  socket.isAlive = true
+  socket.on('pong', () => { socket.isAlive = true })
   socket.on('message', raw => {
     let message
     try { message = JSON.parse(raw.toString()) } catch { return send(socket, { type: 'error', message: 'Некорректное сообщение' }) }
@@ -113,9 +86,23 @@ server.on('connection', socket => {
     }
     if (message.type === 'game-event') broadcast(room, { type: 'game-event', event: message.event, payload: { ...(message.payload || {}), playerId: player.id } })
   })
+  socket.on('error', error => {
+    console.error('WebSocket connection error', error.message)
+    leave(player)
+  })
   socket.on('close', () => leave(player))
 })
 
+const heartbeat = setInterval(() => {
+  server.clients.forEach(socket => {
+    if (!socket.isAlive) return socket.terminate()
+    socket.isAlive = false
+    socket.ping()
+  })
+}, 30_000)
+
+server.on('close', () => clearInterval(heartbeat))
+
 httpServer.listen(port, '0.0.0.0', () => {
-  console.log(`Tech Lead Simulator listening on http://0.0.0.0:${port}`)
+  console.log(`Teach Sim multiplayer server listening on http://0.0.0.0:${port}`)
 })
