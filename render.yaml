@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: teach-sim
+    name: teach-sim-server
     runtime: node
     plan: free
     buildCommand: npm ci && npm run build
@@ -8,4 +8,4 @@ services:
     healthCheckPath: /health
     envVars:
       - key: VITE_MULTIPLAYER_URL
-        value: wss://teach-sim.onrender.com
+        value: wss://teach-sim-server.onrender.com
