@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "start": "node server/multiplayer.mjs",
     "dev": "vite",
     "dev:multiplayer": "node server/multiplayer.mjs",
     "build": "vue-tsc -b && vite build",

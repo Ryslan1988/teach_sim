@@ -1,9 +1,67 @@
 import { WebSocketServer } from 'ws'
 import { randomBytes, randomUUID } from 'node:crypto'
+import { createServer } from 'node:http'
+import { readFile, stat } from 'node:fs/promises'
+import { extname, resolve, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const port = Number(process.env.MULTIPLAYER_PORT || 8787)
-const server = new WebSocketServer({ port })
+const port = Number(process.env.PORT || process.env.MULTIPLAYER_PORT || 8787)
+const distDirectory = resolve(fileURLToPath(new URL('../dist', import.meta.url)))
+const contentTypes = {
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+}
 const rooms = new Map()
+
+async function serveFrontend(request, response) {
+  const requestUrl = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`)
+  if (requestUrl.pathname === '/health') {
+    response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
+    response.end(JSON.stringify({ status: 'ok', rooms: rooms.size }))
+    return
+  }
+
+  const requestedPath = decodeURIComponent(requestUrl.pathname)
+  const relativePath = requestedPath === '/' ? 'index.html' : requestedPath.slice(1)
+  let filePath = resolve(distDirectory, relativePath)
+  if (filePath !== distDirectory && !filePath.startsWith(`${distDirectory}${sep}`)) {
+    response.writeHead(403)
+    response.end('Forbidden')
+    return
+  }
+
+  try {
+    const fileStats = await stat(filePath)
+    if (!fileStats.isFile()) throw new Error('Not a file')
+  } catch {
+    if (requestedPath.startsWith('/assets/')) {
+      response.writeHead(404)
+      response.end('Not found')
+      return
+    }
+    filePath = resolve(distDirectory, 'index.html')
+  }
+
+  const body = await readFile(filePath)
+  const contentType = contentTypes[extname(filePath)] || 'application/octet-stream'
+  const cacheControl = filePath.endsWith('index.html') ? 'no-cache' : 'public, max-age=31536000, immutable'
+  response.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': cacheControl })
+  response.end(request.method === 'HEAD' ? undefined : body)
+}
+
+const httpServer = createServer((request, response) => {
+  serveFrontend(request, response).catch(error => {
+    console.error('HTTP request failed', error)
+    if (!response.headersSent) response.writeHead(500)
+    response.end('Internal server error')
+  })
+})
+const server = new WebSocketServer({ server: httpServer })
 
 function code() { return `ATLAS-${randomBytes(2).toString('hex').toUpperCase()}` }
 function send(socket, event) { if (socket.readyState === 1) socket.send(JSON.stringify(event)) }
@@ -58,4 +116,6 @@ server.on('connection', socket => {
   socket.on('close', () => leave(player))
 })
 
-console.log(`Multiplayer server listening on ws://localhost:${port}`)
+httpServer.listen(port, '0.0.0.0', () => {
+  console.log(`Tech Lead Simulator listening on http://0.0.0.0:${port}`)
+})
