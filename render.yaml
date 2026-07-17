@@ -1,11 +1,14 @@
 services:
   - type: web
-    name: teach-sim-server
-    runtime: node
-    plan: free
+    name: teach-sim
+    runtime: static
+    branch: main
     buildCommand: npm ci && npm run build
-    startCommand: npm start
-    healthCheckPath: /health
+    staticPublishPath: ./dist
     envVars:
       - key: VITE_MULTIPLAYER_URL
         value: wss://teach-sim-server.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
