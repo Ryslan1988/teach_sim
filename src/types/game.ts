@@ -21,12 +21,35 @@ export interface AnswerOption {
   correct: boolean
 }
 
+export type ContentSource = 'integration' | 'mock'
+
+export interface AnswerEvaluation {
+  correct: boolean
+  score: number
+  explanation: string
+  feedback: string
+  source: ContentSource
+}
+
+export interface InterviewResult {
+  totalScore: number
+  level: string
+  strengths: string[]
+  weaknesses: string[]
+  recommendations: string[]
+  summary: string
+  source: ContentSource
+}
+
 export interface Question {
   id: number
   title: string
   category: string
   timeLimit: number
   answers: AnswerOption[]
+  correctAnswer?: string
+  explanation?: string
+  source?: ContentSource
 }
 
 export interface GameResult {

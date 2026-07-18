@@ -22,21 +22,29 @@ npm run preview
 
 ## Подключение backend
 
-По умолчанию используется mock-режим:
+Frontend работает в режиме API-first: сначала обращается к backend и AI service,
+а при сетевой ошибке, таймауте, пустом или невалидном ответе использует mock fallback.
 
 ```env
-VITE_USE_MOCKS=true
-```
-
-Для интеграции с backend:
-
-```env
-VITE_USE_MOCKS=false
 VITE_API_BASE_URL=/api
+VITE_AI_API_BASE_URL=/api
 VITE_API_PROXY_TARGET=http://localhost:8080
+VITE_AI_PROXY_TARGET=http://localhost:8087
 ```
 
-Ожидаемые endpoint-ы находятся в `src/services/api.ts`:
+AI service должен предоставлять API под `/api/v1/ai`. В dev-режиме Vite
+направляет этот префикс на `http://localhost:8087`; остальные `/api` запросы —
+на основной backend.
+
+Используемые AI endpoint-ы:
+
+- `POST /api/v1/ai/questions/generate`
+- `POST /api/v1/ai/interviews/result`
+
+`questions/generate` получает профили четырёх выбранных кандидатов и одним
+ответом возвращает вопрос вместе с четырьмя персонализированными репликами.
+
+Ожидаемые endpoint-ы основного backend находятся в `src/services/api.ts`:
 
 - `GET /api/v1/candidates`
 - `GET /api/v1/questions`

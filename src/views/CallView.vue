@@ -16,6 +16,7 @@ const busy = ref(false)
 const selectedId = ref('')
 const seconds = ref(45)
 const feedback = ref<'correct' | 'wrong' | ''>('')
+const feedbackText = ref('')
 const lastSpeaker = ref('')
 const shuffledAnswers = ref<AnswerOption[]>([])
 let timer: number | undefined
@@ -24,7 +25,7 @@ const finished = computed(() => game.questions.length > 0 && game.currentIndex >
 const callCandidates = computed(() => game.candidates.filter(candidate => game.interviewIds.includes(candidate.id)))
 const onlineSession = multiplayer.connected && Boolean(multiplayer.room)
 
-watch(() => q.value?.id, () => {
+watch(q, () => {
   const answers = q.value?.answers ? [...q.value.answers] : []
   for (let index = answers.length - 1; index > 0; index--) {
     const randomIndex = Math.floor(Math.random() * (index + 1))
@@ -38,19 +39,24 @@ function candidate(id: string) {
 }
 
 async function chooseAnswer(id: string) {
-  if (busy.value || !q.value) return
+  if (busy.value || game.questionLoading || !q.value) return
   busy.value = true
   selectedId.value = id
   const answer = q.value.answers.find(item => item.id === id)!
-  feedback.value = answer.correct ? 'correct' : 'wrong'
   lastSpeaker.value = candidate(answer.candidateId).name
+  const evaluation = await game.evaluateCurrentAnswer(id)
+  if (!evaluation) { busy.value = false; return }
+  feedback.value = evaluation.correct ? 'correct' : 'wrong'
+  feedbackText.value = evaluation.feedback || evaluation.explanation
   await new Promise(resolve => window.setTimeout(resolve, 1100))
-  await game.answer(id)
+  await game.answer(id, evaluation)
   if (duel.active) duel.updateProgress(game.currentIndex / Math.max(game.questions.length, 1) * 100)
   else if (onlineSession) multiplayer.gameEvent('progress', { answered: game.currentIndex, total: game.questions.length, score: game.score, finished: game.currentIndex >= game.questions.length })
   if (!finished.value) {
+    await game.prepareQuestion()
     selectedId.value = ''
     feedback.value = ''
+    feedbackText.value = ''
     lastSpeaker.value = ''
     seconds.value = 45
     busy.value = false
@@ -59,8 +65,9 @@ async function chooseAnswer(id: string) {
 
 onMounted(async () => {
   if (!game.questions.length) await game.bootstrap()
+  await game.prepareQuestion()
   if (duel.active) duel.enterStage('interview', game.currentIndex / Math.max(game.questions.length, 1) * 100)
-  timer = window.setInterval(() => { if (seconds.value > 0 && !busy.value && !finished.value) seconds.value-- }, 1000)
+  timer = window.setInterval(() => { if (seconds.value > 0 && !busy.value && !game.questionLoading && !finished.value) seconds.value-- }, 1000)
 })
 onUnmounted(() => window.clearInterval(timer))
 </script>
@@ -93,7 +100,7 @@ onUnmounted(() => window.clearInterval(timer))
 
     <aside class="interview-console" v-if="q">
       <header class="console-head">
-        <div><span>{{ duel.active ? 'ЭТАП 02 / 05 · ТЕХНИЧЕСКОЕ ИНТЕРВЬЮ' : 'ТЕХНИЧЕСКОЕ ИНТЕРВЬЮ' }}</span><b>Вопрос {{ game.currentIndex + 1 }} / {{ game.questions.length }}</b></div>
+        <div><span>{{ duel.active ? 'ЭТАП 02 / 05 · ТЕХНИЧЕСКОЕ ИНТЕРВЬЮ' : 'ТЕХНИЧЕСКОЕ ИНТЕРВЬЮ' }}</span><b>Вопрос {{ game.currentIndex + 1 }} / {{ game.questions.length }} · {{ q.source === 'integration' ? 'AI GENERATED' : 'MOCK FALLBACK' }}</b></div>
         <div class="console-timer" :class="{ danger: seconds < 10 }">00:{{ String(seconds).padStart(2, '0') }}</div>
       </header>
 
@@ -104,14 +111,14 @@ onUnmounted(() => window.clearInterval(timer))
       </section>
 
       <section class="live-transcript">
-        <div class="transcript-heading"><span><i></i> LIVE TRANSCRIPT</span><small>Выберите сильнейший ответ</small></div>
+        <div class="transcript-heading"><span><i></i> LIVE TRANSCRIPT</span><small>{{ game.questionLoading ? 'AI готовит вопрос и реплики…' : 'Выберите сильнейший ответ' }}</small></div>
         <button
           v-for="(answer, index) in shuffledAnswers"
           :key="answer.id"
           class="speech-line"
           :class="{ selected: selectedId === answer.id }"
           :style="{ '--delay': `${index * .14}s`, '--accent': candidate(answer.candidateId).accent }"
-          :disabled="busy"
+          :disabled="busy || game.questionLoading"
           @click="chooseAnswer(answer.id)"
         >
           <CandidateAvatar :candidate="candidate(answer.candidateId)" size="sm" />
@@ -123,7 +130,7 @@ onUnmounted(() => window.clearInterval(timer))
         </button>
         <div v-if="feedback" class="answer-feedback" :class="feedback">
           <i>{{ feedback === 'correct' ? '✓' : '×' }}</i>
-          <div><b>{{ feedback === 'correct' ? 'Сильный ответ' : 'Слабый ответ' }}</b><span>Реплика кандидата {{ lastSpeaker }} зафиксирована</span></div>
+          <div><b>{{ feedback === 'correct' ? 'Сильный ответ' : 'Слабый ответ' }}</b><span>{{ feedbackText || `Реплика кандидата ${lastSpeaker} зафиксирована` }}</span></div>
         </div>
       </section>
 
@@ -134,10 +141,11 @@ onUnmounted(() => window.clearInterval(timer))
       <div class="complete-icon">✓</div>
       <span>СОБЕСЕДОВАНИЕ ЗАВЕРШЕНО</span>
       <h2>{{ game.correctCount }}<small>/{{ game.questions.length }}</small></h2>
-      <p>Все вопросы пройдены. Результаты сохранены в профиле техлида.</p>
-      <div class="complete-stats"><div><span>ОЧКИ</span><b>{{ game.score }}</b></div><div><span>ЛУЧШАЯ СЕРИЯ</span><b>{{ game.bestStreak }}</b></div></div>
+      <p>{{ game.resultLoading ? 'AI формирует итоговый разбор интервью…' : game.interviewResult?.summary || 'Все вопросы пройдены. Результаты сохранены в профиле техлида.' }}</p>
+      <div class="complete-stats"><div><span>AI SCORE</span><b>{{ game.interviewResult?.totalScore ?? game.score }}</b></div><div><span>УРОВЕНЬ</span><b>{{ game.interviewResult?.level || '—' }}</b></div></div>
+      <div v-if="game.interviewResult?.strengths.length" class="ai-result-tags"><span v-for="strength in game.interviewResult.strengths.slice(0, 2)" :key="strength">✓ {{ strength }}</span></div>
       <div v-if="duel.active" class="winner-banner">ПРОМЕЖУТОЧНЫЙ СЧЁТ · {{ duel.localScore }} : {{ duel.remote.score }}</div>
-      <button class="btn primary block" @click="router.push('/details')">{{ duel.active ? 'ПЕРЕЙТИ К ЭТАПУ 03' : 'ПРОДОЛЖИТЬ К ФИНАЛУ' }}&nbsp; →</button>
+      <button class="btn primary block" :disabled="game.resultLoading" @click="router.push('/details')">{{ game.resultLoading ? 'AI АНАЛИЗИРУЕТ…' : duel.active ? 'ПЕРЕЙТИ К ЭТАПУ 03' : 'ПРОДОЛЖИТЬ К ФИНАЛУ' }}&nbsp; →</button>
     </aside>
   </div>
 </template>

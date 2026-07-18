@@ -5,9 +5,7 @@ const router = useRouter()
 const game = useGameStore()
 function go() { router.push(game.currentIndex >= game.questions.length ? '/result' : '/question') }
 function isCorrect(index: number) {
-  const question = game.questions[index]
-  const selected = game.selectedAnswerIds[index]
-  return Boolean(question && selected && question.answers.find(a => a.id === selected)?.correct)
+  return game.isAnswerCorrect(index)
 }
 </script>
 <template>
