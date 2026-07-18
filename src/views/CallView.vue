@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game'
 import CandidateAvatar from '@/components/CandidateAvatar.vue'
+import AiConnectionOverlay from '@/components/AiConnectionOverlay.vue'
 import type { AnswerOption } from '@/types/game'
 import { multiplayer } from '@/services/multiplayer'
 import { useDuelStore } from '@/stores/duel'
@@ -74,6 +75,7 @@ onUnmounted(() => window.clearInterval(timer))
 
 <template>
   <div class="live-interview">
+    <AiConnectionOverlay v-if="game.questionLoading" />
     <section class="call-stage">
       <div class="call-stage-head">
         <div><span class="record-dot"></span><b>LIVE INTERVIEW</b><small>Защищённое соединение</small></div>

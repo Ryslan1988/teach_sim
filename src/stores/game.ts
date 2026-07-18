@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, toRaw } from 'vue'
 import { defineStore } from 'pinia'
 import { gameApi } from '@/services/api'
 import type { AnswerEvaluation, Candidate, InterviewResult, Question } from '@/types/game'
@@ -25,6 +25,8 @@ export const useGameStore = defineStore('game', () => {
   const preparedQuestionIndexes = new Set<number>()
   const preparationPromises = new Map<number, Promise<void>>()
   let bootstrapPromise: Promise<void> | undefined
+
+  const cloneState = <T>(value: T): T => structuredClone(toRaw(value))
 
   const currentQuestion = computed(() => questions.value[currentIndex.value])
 
@@ -55,8 +57,8 @@ export const useGameStore = defineStore('game', () => {
       try {
         const [candidateData, questionData] = await Promise.all([gameApi.getCandidates(), gameApi.getQuestions()])
         candidates.value = candidateData
-        questionTemplates.value = structuredClone(questionData)
-        if (!questions.value.length) questions.value = structuredClone(questionData)
+        questionTemplates.value = cloneState(questionData)
+        if (!questions.value.length) questions.value = cloneState(questionData)
       } finally {
         loading.value = false
         bootstrapPromise = undefined
@@ -76,7 +78,7 @@ export const useGameStore = defineStore('game', () => {
     interviewIds.value = []
     selectedTechIds.value = []
     issueSelections.value = {}
-    questions.value = structuredClone(questionTemplates.value)
+    questions.value = cloneState(questionTemplates.value)
     preparedQuestionIndexes.clear()
     preparationPromises.clear()
     questionLoading.value = false
@@ -92,8 +94,8 @@ export const useGameStore = defineStore('game', () => {
   function beginInterview() {
     const chosen = interviewIds.value.length === 4 ? interviewIds.value : candidates.value.slice(0, 4).map(candidate => candidate.id)
     const totalQuestions = mode.value === 'quick' ? 5 : 10
-    const templates = questionTemplates.value.length ? questionTemplates.value : questions.value
-    questions.value = structuredClone(templates.slice(0, totalQuestions)).map(question => ({
+    const templates = cloneState(questionTemplates.value.length ? questionTemplates.value : questions.value)
+    questions.value = templates.slice(0, totalQuestions).map(question => ({
       ...question,
       answers: question.answers.map((answer, index) => ({ ...answer, candidateId: chosen[index % Math.max(chosen.length, 1)] || answer.candidateId })),
     }))
