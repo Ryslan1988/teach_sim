@@ -114,7 +114,7 @@ onUnmounted(() => window.clearInterval(timer))
       </header>
 
       <section class="active-question">
-        <span class="question-category">{{ q.category }} · УРОВЕНЬ MIDDLE+</span>
+        <span class="question-category">{{ q.category }} · УРОВЕНЬ {{ q.level || 'MIDDLE+' }}</span>
         <h2>{{ q.title }}</h2>
         <div class="question-progress"><i :style="{ width: `${(game.currentIndex + 1) / game.questions.length * 100}%` }"></i></div>
       </section>

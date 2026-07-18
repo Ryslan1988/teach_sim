@@ -7,7 +7,9 @@ interface GenerateQuestionRequest {
   technology: string
   level: string
   difficulty: number
+  variationSeed: string
   previousQuestions: string[]
+  previousAnswers: string[]
   candidates: Array<{
     id: string
     name: string
@@ -65,9 +67,58 @@ const apiTimeout = Number(import.meta.env.VITE_API_TIMEOUT_MS || 3500)
 const aiTimeout = Number(import.meta.env.VITE_AI_TIMEOUT_MS || 20000)
 const http = axios.create({ baseURL: apiBaseUrl, timeout: apiTimeout })
 const aiHttp = axios.create({ baseURL: aiBaseUrl, timeout: aiTimeout })
+const aiHistoryKey = 'tech-lead-ai-content-history-v1'
+const questionHistoryLimit = 60
+const answerHistoryLimit = 120
+
+interface AiContentHistory {
+  questions: string[]
+  answers: string[]
+}
 
 const wait = (ms = 120) => new Promise(resolve => setTimeout(resolve, ms))
 const clone = <T>(value: T): T => structuredClone(toRaw(value))
+
+function readAiHistory(): AiContentHistory {
+  try {
+    const stored = localStorage.getItem(aiHistoryKey)
+    if (!stored) return { questions: [], answers: [] }
+    const parsed = JSON.parse(stored) as Partial<AiContentHistory>
+    return {
+      questions: Array.isArray(parsed.questions) ? parsed.questions.filter(item => typeof item === 'string') : [],
+      answers: Array.isArray(parsed.answers) ? parsed.answers.filter(item => typeof item === 'string') : [],
+    }
+  } catch {
+    return { questions: [], answers: [] }
+  }
+}
+
+function rememberAiContent(question: string, answers: string[]) {
+  try {
+    const history = readAiHistory()
+    const questions = [...history.questions, question].slice(-questionHistoryLimit)
+    const answerHistory = [...history.answers, ...answers].slice(-answerHistoryLimit)
+    localStorage.setItem(aiHistoryKey, JSON.stringify({ questions, answers: answerHistory }))
+  } catch {
+    // Storage can be unavailable in private mode; generation still works without it.
+  }
+}
+
+function uniqueRecent(items: string[], limit: number) {
+  return [...new Set(items.map(item => item.trim()).filter(Boolean))].slice(-limit)
+}
+
+function variationSeed() {
+  const randomPart = globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)
+  return `${Date.now()}-${randomPart}`
+}
+
+function candidateLevel(candidate: Candidate) {
+  const years = Number(candidate.experience?.match(/\d+/)?.[0] || 0)
+  if (years >= 8) return 'SENIOR'
+  if (years >= 5) return 'MIDDLE'
+  return 'JUNIOR'
+}
 
 function fallbackQuestion(question: Question): Question {
   const fallback = clone(question)
@@ -169,16 +220,19 @@ export const gameApi = {
   async prepareInterviewQuestion(input: PrepareQuestionInput): Promise<Question> {
     const selectedCandidates = input.candidates.slice(0, 4)
     if (selectedCandidates.length !== 4) return fallbackQuestion(input.fallback)
+    const history = readAiHistory()
 
     const request: GenerateQuestionRequest = {
       technology: input.fallback.category || 'Software Engineering',
       level: input.level || 'MIDDLE+',
       difficulty: Math.min(10, Math.max(1, input.difficulty || 5)),
-      previousQuestions: input.previousQuestions,
+      variationSeed: variationSeed(),
+      previousQuestions: uniqueRecent([...history.questions, ...input.previousQuestions], questionHistoryLimit),
+      previousAnswers: uniqueRecent(history.answers, answerHistoryLimit),
       candidates: selectedCandidates.map(candidate => ({
         id: candidate.id,
         name: candidate.name,
-        level: 'MIDDLE+',
+        level: candidateLevel(candidate),
         personality: candidate.summary || candidate.skills.join(', ') || 'спокойный технический специалист',
       })),
     }
@@ -197,11 +251,13 @@ export const gameApi = {
     }
 
     const generatedAnswers = new Map(generated.answers.map(answer => [answer.candidateId, answer]))
+    rememberAiContent(generated.question.trim(), generated.answers.map(answer => answer.answer.trim()))
 
     return {
       id: input.fallback.id,
       title: generated.question.trim(),
       category: input.fallback.category,
+      level: request.level,
       timeLimit: input.fallback.timeLimit || 45,
       correctAnswer: generated.correctAnswer.trim(),
       explanation: generated.explanation?.trim() || '',

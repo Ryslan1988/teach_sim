@@ -45,6 +45,7 @@ export interface Question {
   id: number
   title: string
   category: string
+  level?: string
   timeLimit: number
   answers: AnswerOption[]
   correctAnswer?: string

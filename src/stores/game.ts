@@ -116,6 +116,8 @@ export const useGameStore = defineStore('game', () => {
     if (!fallback) return
     const sessionId = gameId.value
     const selectedCandidates = candidates.value.filter(candidate => interviewIds.value.includes(candidate.id))
+    const difficulty = Math.min(10, 4 + index)
+    const level = difficulty <= 4 ? 'JUNIOR' : difficulty <= 7 ? 'MIDDLE' : 'SENIOR'
 
     const promise = (async () => {
       if (index === currentIndex.value) questionLoading.value = true
@@ -124,8 +126,8 @@ export const useGameStore = defineStore('game', () => {
           fallback,
           candidates: selectedCandidates,
           previousQuestions: questions.value.slice(0, index).map(question => question.title),
-          level: 'MIDDLE+',
-          difficulty: Math.min(10, 4 + index),
+          level,
+          difficulty,
         })
         if (gameId.value !== sessionId) return
         questions.value[index] = prepared
