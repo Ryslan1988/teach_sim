@@ -8,6 +8,10 @@ services:
     envVars:
       - key: VITE_MULTIPLAYER_URL
         value: wss://teach-sim-server.onrender.com
+      - key: VITE_AI_API_BASE_URL
+        value: https://teach-sim-ai.onrender.com/api
+      - key: VITE_AI_TIMEOUT_MS
+        value: 45000
     routes:
       - type: rewrite
         source: /*

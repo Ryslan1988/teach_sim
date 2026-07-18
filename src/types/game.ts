@@ -19,6 +19,7 @@ export interface AnswerOption {
   candidateId: string
   text: string
   correct: boolean
+  source?: ContentSource
 }
 
 export type ContentSource = 'integration' | 'mock'

@@ -1,2 +1,26 @@
-<script setup lang="ts">import { useRouter } from 'vue-router'; import { useGameStore } from '@/stores/game'; const router=useRouter(); const game=useGameStore()</script>
-<template><div class="center-wrap"><div class="panel xwide"><h2>ДЕТАЛЬНАЯ СТАТИСТИКА</h2><p v-if="game.interviewResult" class="muted center">{{ game.interviewResult.summary }}</p><div class="detail-list"><div v-for="(q,i) in game.questions" :key="q.id"><span>{{q.title}}</span><b :class="game.isAnswerCorrect(i)?'yes':'no'">{{game.isAnswerCorrect(i)?'✓':'×'}}</b></div></div><button class="btn primary block" @click="router.push('/team-select')">Собрать команду</button></div></div></template>
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { useGameStore } from '@/stores/game'
+
+const router = useRouter()
+const game = useGameStore()
+</script>
+
+<template>
+  <div class="center-wrap">
+    <div class="panel xwide">
+      <h2>ДЕТАЛЬНАЯ СТАТИСТИКА</h2>
+      <p v-if="game.interviewResult" class="muted center">{{ game.interviewResult.summary }}</p>
+      <div class="detail-list">
+        <div v-for="(q, i) in game.questions" :key="q.id">
+          <div class="detail-question-copy">
+            <span>{{ q.title }}</span>
+            <small class="detail-source-chip" :class="q.source === 'integration' ? 'integration' : 'mock'">{{ q.source === 'integration' ? '✦ AI SERVICE' : '◆ MOCK FALLBACK' }}</small>
+          </div>
+          <b :class="game.isAnswerCorrect(i) ? 'yes' : 'no'">{{ game.isAnswerCorrect(i) ? '✓' : '×' }}</b>
+        </div>
+      </div>
+      <button class="btn primary block" @click="router.push('/team-select')">Собрать команду</button>
+    </div>
+  </div>
+</template>

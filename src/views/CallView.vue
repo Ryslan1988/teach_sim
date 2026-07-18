@@ -39,6 +39,10 @@ function candidate(id: string) {
   return game.candidates.find(candidate => candidate.id === id)!
 }
 
+function answerSource(answer: AnswerOption) {
+  return answer.source || q.value?.source || 'mock'
+}
+
 async function chooseAnswer(id: string) {
   if (busy.value || game.questionLoading || !q.value) return
   busy.value = true
@@ -109,7 +113,11 @@ onUnmounted(() => window.clearInterval(timer))
 
     <aside class="interview-console" v-if="q">
       <header class="console-head">
-        <div><span>{{ duel.active ? 'ЭТАП 02 / 05 · ТЕХНИЧЕСКОЕ ИНТЕРВЬЮ' : 'ТЕХНИЧЕСКОЕ ИНТЕРВЬЮ' }}</span><b>Вопрос {{ game.currentIndex + 1 }} / {{ game.questions.length }} · {{ q.source === 'integration' ? 'AI GENERATED' : 'MOCK FALLBACK' }}</b></div>
+        <div><span>{{ duel.active ? 'ЭТАП 02 / 05 · ТЕХНИЧЕСКОЕ ИНТЕРВЬЮ' : 'ТЕХНИЧЕСКОЕ ИНТЕРВЬЮ' }}</span><b>Вопрос {{ game.currentIndex + 1 }} / {{ game.questions.length }}</b></div>
+        <div class="content-source-badge" :class="q.source === 'integration' ? 'integration' : 'mock'">
+          <i></i>
+          <div><strong>{{ q.source === 'integration' ? 'AI SERVICE' : 'MOCK FALLBACK' }}</strong><small>{{ q.source === 'integration' ? 'Получено от AI-агента' : 'AI недоступен · резервные данные' }}</small></div>
+        </div>
         <div class="console-timer" :class="{ danger: seconds < 10 }">00:{{ String(seconds).padStart(2, '0') }}</div>
       </header>
 
@@ -133,6 +141,7 @@ onUnmounted(() => window.clearInterval(timer))
           <CandidateAvatar :candidate="candidate(answer.candidateId)" size="sm" />
           <span class="speech-copy">
             <strong>{{ candidate(answer.candidateId).name }} <small>{{ candidate(answer.candidateId).role }}</small></strong>
+            <em class="reply-source-chip" :class="answerSource(answer)">{{ answerSource(answer) === 'integration' ? '✦ AI ANSWER' : '◆ MOCK ANSWER' }}</em>
             <q>{{ answer.text }}</q>
           </span>
           <span class="voice-bars"><i></i><i></i><i></i></span>

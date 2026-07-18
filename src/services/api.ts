@@ -122,7 +122,11 @@ function candidateLevel(candidate: Candidate) {
 
 function fallbackQuestion(question: Question): Question {
   const fallback = clone(question)
-  return { ...fallback, source: 'mock' }
+  return {
+    ...fallback,
+    source: 'mock',
+    answers: fallback.answers.map(answer => ({ ...answer, source: 'mock' })),
+  }
 }
 
 function fallbackNotice(operation: string, error: unknown) {
@@ -193,6 +197,16 @@ function localEvaluation(question: Question, answerId: string): AnswerEvaluation
 }
 
 export const gameApi = {
+  async warmupAi() {
+    try {
+      await aiHttp.get('/v1/ai/health', { timeout: 60000 })
+      return true
+    } catch (error) {
+      fallbackNotice('AI warmup', error)
+      return false
+    }
+  },
+
   async getCandidates(): Promise<Candidate[]> {
     try {
       const { data } = await http.get<unknown>('/v1/candidates')
@@ -209,11 +223,19 @@ export const gameApi = {
     try {
       const { data } = await http.get<unknown>('/v1/questions')
       if (!isQuestionList(data)) throw new Error('Некорректный список вопросов')
-      return clone(data.map(question => ({ ...question, source: question.source || 'integration' })))
+      return clone(data.map(question => ({
+        ...question,
+        source: question.source || 'integration',
+        answers: question.answers.map(answer => ({ ...answer, source: answer.source || question.source || 'integration' })),
+      })))
     } catch (error) {
       fallbackNotice('question templates', error)
       await wait()
-      return clone(mockQuestions.map(question => ({ ...question, source: 'mock' as const })))
+      return clone(mockQuestions.map(question => ({
+        ...question,
+        source: 'mock' as const,
+        answers: question.answers.map(answer => ({ ...answer, source: 'mock' as const })),
+      })))
     }
   },
 
@@ -269,6 +291,7 @@ export const gameApi = {
           candidateId: candidate.id,
           text: generatedAnswer.answer.trim(),
           correct: generatedAnswer.correct,
+          source: 'integration',
         }
       }),
     }

@@ -711,3 +711,45 @@ body { background: #061820; }
   .ai-stage-toolbar > div + div { border-top: 1px solid rgba(255,255,255,.06); border-left: 0; }
   .ai-connection-titlebar > b { display: none; }
 }
+
+/* Explicit provenance for every generated question and candidate reply. */
+.content-source-badge {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-left: auto;
+  padding: 8px 11px;
+  border: 1px solid;
+  border-radius: 9px;
+  background: rgba(0,0,0,.18);
+}
+.content-source-badge > i { width: 8px; height: 8px; border-radius: 50%; }
+.content-source-badge > div { display: flex; flex-direction: column; gap: 2px; }
+.content-source-badge strong { font-size: 9px; letter-spacing: .12em; }
+.content-source-badge small { color: #73888d; font-size: 7px; white-space: nowrap; }
+.content-source-badge.integration { border-color: rgba(74,218,172,.32); color: #67ddb8; }
+.content-source-badge.integration > i { background: #55d9af; box-shadow: 0 0 12px rgba(85,217,175,.72); }
+.content-source-badge.mock { border-color: rgba(232,166,76,.4); color: #e5aa59; }
+.content-source-badge.mock > i { background: #e5a950; box-shadow: 0 0 12px rgba(229,169,80,.55); }
+.reply-source-chip {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 3px 6px;
+  border: 1px solid;
+  border-radius: 4px;
+  font: 700 7px/1 Inter,sans-serif;
+  font-style: normal;
+  letter-spacing: .1em;
+}
+.reply-source-chip.integration { border-color: rgba(77,213,170,.28); color: #65d8b4; background: rgba(61,191,151,.08); }
+.reply-source-chip.mock { border-color: rgba(229,169,80,.28); color: #dda55b; background: rgba(194,129,43,.08); }
+.detail-question-copy { display: flex; flex: 1; align-items: flex-start; flex-direction: column; gap: 7px; padding-right: 18px; }
+.detail-source-chip { padding: 3px 6px; border: 1px solid; border-radius: 4px; font-size: 7px; letter-spacing: .1em; }
+.detail-source-chip.integration { border-color: rgba(77,213,170,.28); color: #65d8b4; }
+.detail-source-chip.mock { border-color: rgba(229,169,80,.28); color: #dda55b; }
+
+@media(max-width:720px) {
+  .console-head { flex-wrap: wrap; gap: 10px; }
+  .content-source-badge { order: 3; width: 100%; margin-left: 0; }
+}

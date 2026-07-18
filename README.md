@@ -36,6 +36,10 @@ AI service должен предоставлять API под `/api/v1/ai`. В d
 направляет этот префикс на `http://localhost:8087`; остальные `/api` запросы —
 на основной backend.
 
+В Render production переменная `VITE_AI_API_BASE_URL` направляет запросы на
+`https://teach-sim-ai.onrender.com/api`. AI-сервис должен быть создан из его
+`render.yaml`, а секрет `GEMINI_API_KEY` задаётся только в Render Dashboard.
+
 Используемые AI endpoint-ы:
 
 - `POST /api/v1/ai/questions/generate`

@@ -52,6 +52,7 @@ export const useGameStore = defineStore('game', () => {
 
   async function bootstrap() {
     if (bootstrapPromise) return bootstrapPromise
+    void gameApi.warmupAi()
     bootstrapPromise = (async () => {
       loading.value = true
       try {
