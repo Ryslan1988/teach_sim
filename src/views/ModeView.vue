@@ -3,10 +3,12 @@ import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game'
 import CandidateAvatar from '@/components/CandidateAvatar.vue'
 import { multiplayer } from '@/services/multiplayer'
+import { useDuelStore } from '@/stores/duel'
 
 const router = useRouter()
 const game = useGameStore()
-function choose(mode: 'career'|'quick') { multiplayer.close(); game.mode = mode; game.reset(); router.push('/stats') }
+const duel = useDuelStore()
+function choose(mode: 'career'|'quick') { multiplayer.close(); duel.deactivate(); game.mode = mode; game.reset(); router.push('/stats') }
 </script>
 
 <template>

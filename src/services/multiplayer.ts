@@ -20,11 +20,17 @@ export class MultiplayerClient {
   private url = (import.meta.env.VITE_MULTIPLAYER_URL as string | undefined) || 'ws://localhost:8787'
   room = ''
   playerId = ''
+  mode: 'duel' | 'co-op' = 'co-op'
   connected = false
   lockedCandidates = new Set<string>()
 
   on(listener: Listener) { this.listeners.add(listener); return () => this.listeners.delete(listener) }
-  private emit(event: MultiplayerEvent) { if (event.type === 'candidate-locked') this.lockedCandidates.add(event.candidateId); this.listeners.forEach(listener => listener(event)) }
+  private emit(event: MultiplayerEvent) {
+    if (event.type === 'room-created' || event.type === 'room-joined') { this.room = event.room; this.playerId = event.playerId }
+    if (event.type === 'mode-selected') this.mode = event.mode
+    if (event.type === 'candidate-locked') this.lockedCandidates.add(event.candidateId)
+    this.listeners.forEach(listener => listener(event))
+  }
 
   connect() {
     if (!this.url) return false
@@ -41,10 +47,10 @@ export class MultiplayerClient {
   create(name: string) { this.send({ type: 'create-room', name }) }
   join(room: string, name: string) { this.send({ type: 'join-room', room: room.toUpperCase(), name }) }
   ready(ready: boolean) { this.send({ type: 'ready', ready }) }
-  selectMode(mode: 'duel' | 'co-op') { this.send({ type: 'select-mode', mode }) }
+  selectMode(mode: 'duel' | 'co-op') { this.mode = mode; this.send({ type: 'select-mode', mode }) }
   gameEvent(event: string, payload: unknown) { this.send({ type: 'game-event', event, payload }) }
   lockCandidate(candidateId: string) { this.send({ type: 'lock-candidate', candidateId }) }
-  close() { this.socket?.close(); this.socket = undefined; this.connected = false; this.pending = []; this.room = ''; this.playerId = ''; this.lockedCandidates.clear() }
+  close() { this.socket?.close(); this.socket = undefined; this.connected = false; this.pending = []; this.room = ''; this.playerId = ''; this.mode = 'co-op'; this.lockedCandidates.clear() }
 }
 
 export const multiplayer = new MultiplayerClient()
