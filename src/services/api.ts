@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { toRaw } from 'vue'
 import { candidates as mockCandidates, questions as mockQuestions } from '@/data/mock'
 import type { AnswerEvaluation, Candidate, InterviewResult, Question } from '@/types/game'
 
@@ -66,7 +67,12 @@ const http = axios.create({ baseURL: apiBaseUrl, timeout: apiTimeout })
 const aiHttp = axios.create({ baseURL: aiBaseUrl, timeout: aiTimeout })
 
 const wait = (ms = 120) => new Promise(resolve => setTimeout(resolve, ms))
-const clone = <T>(value: T): T => structuredClone(value)
+const clone = <T>(value: T): T => structuredClone(toRaw(value))
+
+function fallbackQuestion(question: Question): Question {
+  const fallback = clone(question)
+  return { ...fallback, source: 'mock' }
+}
 
 function fallbackNotice(operation: string, error: unknown) {
   if (!import.meta.env.DEV) return
@@ -162,7 +168,7 @@ export const gameApi = {
 
   async prepareInterviewQuestion(input: PrepareQuestionInput): Promise<Question> {
     const selectedCandidates = input.candidates.slice(0, 4)
-    if (selectedCandidates.length !== 4) return clone({ ...input.fallback, source: 'mock' })
+    if (selectedCandidates.length !== 4) return fallbackQuestion(input.fallback)
 
     const request: GenerateQuestionRequest = {
       technology: input.fallback.category || 'Software Engineering',
@@ -187,7 +193,7 @@ export const gameApi = {
       generated = data
     } catch (error) {
       fallbackNotice(`question ${input.fallback.id}`, error)
-      return clone({ ...input.fallback, source: 'mock' })
+      return fallbackQuestion(input.fallback)
     }
 
     const generatedAnswers = new Map(generated.answers.map(answer => [answer.candidateId, answer]))

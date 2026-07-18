@@ -178,9 +178,11 @@ export const useGameStore = defineStore('game', () => {
     const answerOption = question.answers.find(item => item.id === answerId)
     const candidate = candidates.value.find(item => item.id === answerOption?.candidateId)
     if (candidate) candidate.answers += 1
-    await gameApi.submitAnswer(gameId.value, question.id, answerId)
+    // Persistence must not block the interview flow. The API method has its own
+    // mock fallback, so the UI can advance while the result is saved in background.
+    void gameApi.submitAnswer(gameId.value, question.id, answerId)
     currentIndex.value += 1
-    if (currentIndex.value >= questions.value.length) await completeInterview()
+    if (currentIndex.value >= questions.value.length) void completeInterview()
     return evaluation
   }
 

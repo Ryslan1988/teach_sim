@@ -42,24 +42,31 @@ function candidate(id: string) {
 async function chooseAnswer(id: string) {
   if (busy.value || game.questionLoading || !q.value) return
   busy.value = true
-  selectedId.value = id
-  const answer = q.value.answers.find(item => item.id === id)!
-  lastSpeaker.value = candidate(answer.candidateId).name
-  const evaluation = await game.evaluateCurrentAnswer(id)
-  if (!evaluation) { busy.value = false; return }
-  feedback.value = evaluation.correct ? 'correct' : 'wrong'
-  feedbackText.value = evaluation.feedback || evaluation.explanation
-  await new Promise(resolve => window.setTimeout(resolve, 1100))
-  await game.answer(id, evaluation)
-  if (duel.active) duel.updateProgress(game.currentIndex / Math.max(game.questions.length, 1) * 100)
-  else if (onlineSession) multiplayer.gameEvent('progress', { answered: game.currentIndex, total: game.questions.length, score: game.score, finished: game.currentIndex >= game.questions.length })
-  if (!finished.value) {
-    await game.prepareQuestion()
-    selectedId.value = ''
-    feedback.value = ''
-    feedbackText.value = ''
-    lastSpeaker.value = ''
-    seconds.value = 45
+  try {
+    selectedId.value = id
+    const answer = q.value.answers.find(item => item.id === id)
+    const speaker = answer && game.candidates.find(item => item.id === answer.candidateId)
+    if (!answer || !speaker) return
+    lastSpeaker.value = speaker.name
+    const evaluation = await game.evaluateCurrentAnswer(id)
+    if (!evaluation) return
+    feedback.value = evaluation.correct ? 'correct' : 'wrong'
+    feedbackText.value = evaluation.feedback || evaluation.explanation
+    await new Promise(resolve => window.setTimeout(resolve, 1100))
+    await game.answer(id, evaluation)
+    if (duel.active) duel.updateProgress(game.currentIndex / Math.max(game.questions.length, 1) * 100)
+    else if (onlineSession) multiplayer.gameEvent('progress', { answered: game.currentIndex, total: game.questions.length, score: game.score, finished: game.currentIndex >= game.questions.length })
+    if (!finished.value) {
+      selectedId.value = ''
+      feedback.value = ''
+      feedbackText.value = ''
+      lastSpeaker.value = ''
+      seconds.value = 45
+      await game.prepareQuestion()
+    }
+  } catch (error) {
+    if (import.meta.env.DEV) console.error('[interview] answer transition failed', error)
+  } finally {
     busy.value = false
   }
 }
